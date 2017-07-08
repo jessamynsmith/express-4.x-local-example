@@ -6,6 +6,14 @@ var db = require('./db');
 
 var FirebaseStore = require('connect-session-firebase')(session);
 var admin = require('firebase-admin');
+var firebase = require("firebase");
+
+var config = {
+  apiKey: "<FIREBASE_API_KEY>",
+  authDomain: "<FIREBASE_AUTH_DOMAIN>",
+  databaseURL: "<FIREBASE_DATABASE_URL>"
+};
+firebase.initializeApp(config);
 
 // Where firebase-admin.json is a json config file from firebase
 var serviceAccount = require("./private/firebase/firebase-admin.json");
@@ -21,13 +29,18 @@ var ref = admin.initializeApp({
 // that the password is correct and then invoke `cb` with a user object, which
 // will be set at `req.user` in route handlers after authentication.
 passport.use(new Strategy(
-  function(username, password, cb) {
-    db.users.findByUsername(username, function(err, user) {
-      if (err) { return cb(err); }
-      if (!user) { return cb(null, false); }
-      if (user.password != password) { return cb(null, false); }
-      return cb(null, user);
-    });
+  function(email, password, cb) {
+    console.log('passport: ', email, password);
+    firebase.auth().signInWithEmailAndPassword(email, password)
+      .then(function(user) {
+        console.log("user: ", user.toJSON());
+        cb(null, user);
+      })
+      .catch(function(error) {
+        console.log("error: ", error);
+        return cb(null, false);
+      });
+
   }));
 
 
@@ -39,14 +52,20 @@ passport.use(new Strategy(
 // serializing, and querying the user record by ID from the database when
 // deserializing.
 passport.serializeUser(function(user, cb) {
-  cb(null, user.id);
+  cb(null, user.uid);
 });
 
-passport.deserializeUser(function(id, cb) {
-  db.users.findById(id, function (err, user) {
-    if (err) { return cb(err); }
-    cb(null, user);
-  });
+passport.deserializeUser(function(uid, cb) {
+  admin.auth().getUser(uid)
+    .then(function(user) {
+      // See the UserRecord reference doc for the contents of userRecord.
+      console.log("Successfully fetched user data:", user.toJSON());
+      cb(null, user);
+    })
+    .catch(function(error) {
+      console.log("Error fetching user data:", error);
+      return cb(error);
+    });
 });
 
 
@@ -97,6 +116,7 @@ app.post('/login',
   
 app.get('/logout',
   function(req, res){
+    firebase.auth().signOut();
     req.logout();
     res.redirect('/');
   });
