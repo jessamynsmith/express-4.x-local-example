@@ -30,7 +30,7 @@ var ref = admin.initializeApp({
 // will be set at `req.user` in route handlers after authentication.
 passport.use(new Strategy(
   function(email, password, cb) {
-    console.log('passport: ', email, password);
+    console.log('passport: ', email);
     firebase.auth().signInWithEmailAndPassword(email, password)
       .then(function(user) {
         console.log("user: ", user.toJSON());
