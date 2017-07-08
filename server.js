@@ -1,8 +1,18 @@
 var express = require('express');
+var session = require('express-session');
 var passport = require('passport');
 var Strategy = require('passport-local').Strategy;
 var db = require('./db');
 
+var FirebaseStore = require('connect-session-firebase')(session);
+var admin = require('firebase-admin');
+
+// Where firebase-admin.json is a json config file from firebase
+var serviceAccount = require("./private/firebase/firebase-admin.json");
+var ref = admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: "https://tnt-cloud-5d440.firebaseio.com"
+});
 
 // Configure the local strategy for use by Passport.
 //
@@ -54,7 +64,14 @@ app.set('view engine', 'ejs');
 app.use(require('morgan')('combined'));
 app.use(require('cookie-parser')());
 app.use(require('body-parser').urlencoded({ extended: true }));
-app.use(require('express-session')({ secret: 'keyboard cat', resave: false, saveUninitialized: false }));
+app.use(session({
+    store: new FirebaseStore({
+      database: ref.database()
+    }),
+    secret: 'keyboard cat',
+    resave: true,
+    saveUninitialized: true
+  }));
 
 // Initialize Passport and restore authentication state, if any, from the
 // session.
